@@ -62,6 +62,26 @@ pub const SERIALIZED_KEYPAIR_BYTES: usize = 4
     + ML_KEM_768_PUBLIC_KEY_BYTES
     + ML_KEM_768_SECRET_KEY_BYTES;
 
+// AES-256-GCM sizes
+/// AES-256-GCM algorithm identifier
+pub const AES_256_GCM_ID: &str = "AES-256-GCM";
+/// AES-256-GCM key size (256-bit key)
+pub const AES_256_GCM_KEY_BYTES: usize = 32;
+/// AES-256-GCM nonce size (96-bit IV per NIST SP 800-38D)
+pub const AES_256_GCM_NONCE_BYTES: usize = 12;
+/// AES-256-GCM authentication tag size
+pub const AES_256_GCM_TAG_BYTES: usize = 16;
+
+// FIPS module states (used by AtomicU8 FSM in fips::state)
+/// FIPS module has not been initialized
+pub const FIPS_STATE_UNINITIALIZED: u8 = 0;
+/// FIPS module is running self-tests
+pub const FIPS_STATE_SELF_TEST: u8 = 1;
+/// FIPS module is operational and ready for use
+pub const FIPS_STATE_OPERATIONAL: u8 = 2;
+/// FIPS module encountered a critical error
+pub const FIPS_STATE_ERROR: u8 = 3;
+
 // HKDF context strings (domain separation)
 /// HKDF context string for AEAD key derivation
 pub const HKDF_CONTEXT_AEAD: &[u8] = b"TOLLWAY-V1-AEAD-KEY";
