@@ -9,8 +9,8 @@ use hkdf::Hkdf;
 use sha3::Sha3_256;
 
 use crate::constants::{
-    CHACHA20_POLY1305_KEY_BYTES, CHACHA20_POLY1305_NONCE_BYTES,
-    HKDF_CONTEXT_AEAD, HKDF_CONTEXT_NONCE,
+    CHACHA20_POLY1305_KEY_BYTES, CHACHA20_POLY1305_NONCE_BYTES, HKDF_CONTEXT_AEAD,
+    HKDF_CONTEXT_NONCE,
 };
 use crate::error::TollwayError;
 use crate::secure::memory::{SecretBytes, SecretVec};

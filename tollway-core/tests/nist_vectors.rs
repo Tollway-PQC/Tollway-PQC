@@ -24,6 +24,7 @@ use tollway_core::KeyPair;
 // =============================================================================
 
 /// NIST ML-KEM-768 parameters from FIPS 203
+#[allow(dead_code)]
 mod mlkem768_params {
     pub const PUBLIC_KEY_BYTES: usize = 1184;
     pub const SECRET_KEY_BYTES: usize = 2400;
@@ -76,6 +77,7 @@ fn nist_mlkem768_ciphertext_overhead() {
 // =============================================================================
 
 /// NIST ML-DSA-65 parameters from FIPS 204
+#[allow(dead_code)]
 mod mldsa65_params {
     pub const PUBLIC_KEY_BYTES: usize = 1952;
     pub const SECRET_KEY_BYTES: usize = 4032;

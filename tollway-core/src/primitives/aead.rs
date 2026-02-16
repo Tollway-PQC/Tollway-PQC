@@ -78,7 +78,7 @@ pub fn build_aad(
     ephemeral_kem_pk: &[u8],
 ) -> Vec<u8> {
     let mut aad = Vec::with_capacity(
-        sender_signing_pk.len() + recipient_kem_pk.len() + ephemeral_kem_pk.len()
+        sender_signing_pk.len() + recipient_kem_pk.len() + ephemeral_kem_pk.len(),
     );
     aad.extend_from_slice(sender_signing_pk);
     aad.extend_from_slice(recipient_kem_pk);

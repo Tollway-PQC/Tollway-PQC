@@ -1,111 +1,150 @@
 # tollway-core
 
-**Quantum-resistant cryptographic primitives with forward secrecy and authentication.**
+[![Crates.io](https://img.shields.io/crates/v/tollway-core.svg)](https://crates.io/crates/tollway-core)
+[![Documentation](https://docs.rs/tollway-core/badge.svg)](https://docs.rs/tollway-core)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](../LICENSE-MIT)
+[![Safety Dance](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 
-`tollway-core` provides the foundational cryptographic operations for post-quantum encryption. It's designed to be impossible to misuse while delivering strong security guarantees.
+Core cryptographic primitives for post-quantum authenticated encryption.
+
+## Security
+
+> [!WARNING]
+> This library has **not undergone any third-party security audit**. Usage is at **own risk**. Audit scheduled for Q2 2026.
+
+See [SECURITY.md](../SECURITY.md) for vulnerability reporting.
 
 ## Features
 
-- **ML-KEM-768** for key encapsulation (quantum-resistant key exchange)
-- **ML-DSA-65** for digital signatures (quantum-resistant authentication)
-- **ChaCha20-Poly1305** for authenticated encryption (fast, constant-time AEAD)
-- **HKDF-SHA3-256** for key derivation (domain separation, forward secrecy)
+- **ML-KEM-768** (FIPS 203): Post-quantum key encapsulation
+- **ML-DSA-65** (FIPS 204): Post-quantum digital signatures
+- **ChaCha20-Poly1305**: Authenticated symmetric encryption
+- **HKDF-SHA3-256**: Key derivation with domain separation
+- Forward secrecy via per-message ephemeral keys
+- Sender authentication with cryptographic binding
+- Automatic zeroization of secret keys (`ZeroizeOnDrop`)
+- No unsafe code (`#![forbid(unsafe_code)]`)
 
-## Security Properties
+## Installation
 
-- **Quantum resistance**: All algorithms resistant to known quantum attacks
-- **Forward secrecy**: Ephemeral keys destroyed after each operation
-- **Authentication**: Cryptographic proof of sender identity
-- **Constant-time**: No timing side-channels in secret-dependent operations
-- **Memory safety**: Automatic secure zeroing of sensitive data
+```toml
+[dependencies]
+tollway-core = "1.0"
+```
 
-## Quick Start
+## Usage
+
+### Basic Encryption
 
 ```rust
 use tollway_core::{KeyPair, seal, open};
 
-// Generate keypairs for Alice and Bob
-let alice = KeyPair::generate();
-let bob = KeyPair::generate();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let alice = KeyPair::generate();
+    let bob = KeyPair::generate();
 
-// Alice encrypts a message to Bob
-let plaintext = b"Hello, Bob!";
-let ciphertext = seal(plaintext, &alice, &bob.public_key())?;
+    // Encrypt with sender authentication
+    let ciphertext = seal(b"Hello Bob!", &alice, &bob.public_key())?;
 
-// Bob decrypts and verifies it came from Alice
-// (signature verification happens inside open - if it fails, open returns an error)
-let (decrypted, _sender_pk) = open(&ciphertext, &bob)?;
-assert_eq!(decrypted, plaintext);
+    // Decrypt and verify sender
+    let (plaintext, sender) = open(&ciphertext, &bob)?;
+    
+    assert_eq!(plaintext, b"Hello Bob!");
+    assert_eq!(sender, alice.public_key());
+    
+    Ok(())
+}
+```
+
+### Error Handling
+
+```rust
+use tollway_core::{open, TollwayError};
+
+match open(&ciphertext, &recipient) {
+    Ok((plaintext, sender)) => { /* success */ }
+    Err(TollwayError::SignatureVerificationFailed) => { /* bad sender */ }
+    Err(TollwayError::DecryptionFailed) => { /* tampered or wrong key */ }
+    Err(TollwayError::InvalidCiphertext) => { /* malformed */ }
+    Err(e) => { /* other error */ }
+}
 ```
 
 ## API
 
-### Key Generation
+### `KeyPair::generate() -> KeyPair`
 
-```rust
-let keypair = KeyPair::generate();
-let public_key = keypair.public_key();
-```
+Generates a new ML-KEM-768 + ML-DSA-65 keypair.
 
-### Encryption (Seal)
+### `seal(plaintext, sender, recipient_pk) -> Result<Vec<u8>, TollwayError>`
 
-```rust
-let ciphertext = seal(
-    plaintext: &[u8],
-    sender_keypair: &KeyPair,
-    recipient_public_key: &PublicKey,
-)?;
-```
+Encrypts `plaintext` from `sender` to `recipient_pk` with authentication and forward secrecy.
 
-Returns a `Vec<u8>` containing the ciphertext.
+### `open(ciphertext, recipient) -> Result<(Vec<u8>, PublicKey), TollwayError>`
 
-### Decryption (Open)
+Decrypts `ciphertext` and returns plaintext + verified sender public key.
 
-```rust
-let (plaintext, verified_sender) = open(
-    ciphertext: &[u8],
-    recipient_keypair: &KeyPair,
-)?;
-```
-
-Returns the plaintext and the sender's verified public key.
-
-## Wire Format
-
-Ciphertexts are self-contained and include all necessary information:
-
-``` text
-[ Version | Sender PK | Signature | Ephemeral PK | KEM CT | AEAD CT ]
-```
-
-- **Version**: Algorithm version tag (allows future upgrades)
-- **Sender PK**: Sender's signing public key
-- **Signature**: Signature over ephemeral KEM public key
-- **Ephemeral PK**: One-time KEM public key (forward secrecy)
-- **KEM CT**: Key encapsulation ciphertext
-- **AEAD CT**: Encrypted plaintext with auth tag
-
-Total overhead: ~9,189 bytes + plaintext length
-
-## Error Handling
-
-All operations return `Result<T, TollwayError>`:
+## Errors
 
 ```rust
 pub enum TollwayError {
-    InvalidCiphertext,
-    SignatureVerificationFailed,
-    DecryptionFailed,
-    KeyGenerationFailed,
+    InvalidCiphertext,           // Malformed wire format
+    SignatureVerificationFailed, // Sender auth failed
+    DecryptionFailed,            // AEAD auth failed
+    KeyGenerationFailed,         // RNG failure
+    KEMEncapsulationFailed,      // KEM error
+    KEMDecapsulationFailed,      // KEM error
+    Internal(String),            // Bug (should never happen)
 }
 ```
 
-## No Configuration
+## Wire Format
 
-There are no knobs to turn & no modes to configure. This is intentional. every configuration option is an opportunity for misuse.
+```text
+Version (1B) || Sender Signing PK (1952B) || Sender KEM PK (1184B) 
+|| Ephemeral KEM PK (1184B) || Signature (3309B) || KEM CT (1088B) 
+|| AEAD Length (4B) || AEAD Ciphertext (variable + 16B tag)
+```
 
-If you need different algorithms, use a different version of the library.
+Fixed overhead: ~8,722 bytes before plaintext.
+
+## Sizes
+
+| Component          | Bytes |
+| ------------------ | ----- |
+| Signing Public Key | 1,952 |
+| KEM Public Key     | 1,184 |
+| Signature          | 3,309 |
+| KEM Ciphertext     | 1,088 |
+| AEAD Tag           | 16    |
+
+## Tests
+
+```bash
+cargo test
+```
+
+Tests include:
+
+- Roundtrip seal/open (`tests/seal_open.rs`)
+- Property-based testing (`tests/properties.rs`)
+- Error path coverage (`tests/error_coverage.rs`)
+- Timing analysis (`tests/timing_rigorous.rs`)
+- NIST vectors (`tests/nist_vectors.rs`)
+
+Fuzz targets in [`fuzz/`](fuzz/).
+
+## Benchmarks
+
+```bash
+cargo bench --bench comprehensive
+```
+
+## Documentation
+
+- [docs.rs/tollway-core](https://docs.rs/tollway-core)
+- [PROTOCOL.md](../PROTOCOL.md) - Security specification
 
 ## License
 
-Dual-licensed under Apache 2.0 and MIT.
+Dual-licensed under [MIT](../LICENSE-MIT) or [Apache-2.0](../LICENSE-APACHE).

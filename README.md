@@ -1,57 +1,31 @@
 # Tollway-PQC
 
-**Best post-quantum cryptographic primitives for Rust. Working toward production.**
+[![Crates.io](https://img.shields.io/crates/v/tollway-core.svg)](https://crates.io/crates/tollway-core)
+[![Documentation](https://docs.rs/tollway-core/badge.svg)](https://docs.rs/tollway-core)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
+[![Safety Dance](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 
-![Status: Experimental](https://img.shields.io/badge/status-experimental-orange)
-![Audit: Q2 2026](https://img.shields.io/badge/audit-Q2%202026-blue)
-![NIST: Level 3](https://img.shields.io/badge/NIST-Level%203-green)
-![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)
+A post-quantum cryptography library for authenticated encryption in Rust.
 
-## The Problem
+## Security
 
-**Harvest-Now-Decrypt-Later (HNDL)** is happening today.
+> [!WARNING]
+> This library has **not undergone any third-party security audit**. Usage is at **own risk**. Audit scheduled for Q2 2026.
 
-Nation-state adversaries are capturing encrypted traffic now, storing it indefinitely, waiting for quantum computers to break today's encryption. If your data needs to stay secret for 10+ years, it's already at risk.
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
-- Your TLS traffic from 2024 → readable in 2035
-- Healthcare records, legal documents, IP → exposed
-- RSA-2048, ECDH, ECDSA → all broken by Shor's algorithm
+## Features
 
-**The quantum clock is ticking. Migration takes years. Start now.**
+- **ML-KEM-768** (FIPS 203): Post-quantum key encapsulation (Security Level 3)
+- **ML-DSA-65** (FIPS 204): Post-quantum digital signatures (Security Level 3)
+- **ChaCha20-Poly1305**: Authenticated symmetric encryption
+- **HKDF-SHA3-256**: Key derivation with domain separation
+- Forward secrecy via per-message ephemeral keys
+- Sender authentication with cryptographic binding
+- Automatic zeroization of secret keys
+- No unsafe code (`#![forbid(unsafe_code)]`)
 
-## The Solution
-
-Tollway-PQC provides quantum-resistant encryption using NIST-standardized algorithms:
-
-| Component | Algorithm | Security |
-|-----------|-----------|----------|
-| Key Encapsulation | **ML-KEM-768** | Post-quantum Level 3 |
-| Digital Signatures | **ML-DSA-65** | Post-quantum Level 3 |
-| Symmetric Encryption | **ChaCha20-Poly1305** | 256-bit classical |
-| Key Derivation | **HKDF-SHA3-256** | 256-bit |
-
-Every message is encrypted, authenticated, and protected with forward secrecy—automatically.
-
-## Quick Start
-
-30 seconds to working code:
-
-```rust
-use tollway_core::{KeyPair, seal, open};
-
-// Generate post-quantum keypairs
-let alice = KeyPair::generate();
-let bob = KeyPair::generate();
-
-// Alice encrypts to Bob with authentication
-let ciphertext = seal(b"Hello Bob", &alice, &bob.public_key())?;
-
-// Bob decrypts and verifies Alice's identity
-let (plaintext, sender) = open(&ciphertext, &bob)?;
-
-assert_eq!(plaintext, b"Hello Bob");
-assert_eq!(sender, alice.public_key());  // Cryptographic proof it's from Alice
-```
+## Installation
 
 Add to your `Cargo.toml`:
 
@@ -60,216 +34,106 @@ Add to your `Cargo.toml`:
 tollway-core = "1.0"
 ```
 
-## Status
+## Usage
 
-**V1.0: Experimental**
+### Authenticated Encryption
 
-| Milestone | Status | Date |
-|-----------|--------|------|
-| Core API stable | ✅ Complete | Jan 2026 |
-| Full test coverage | ✅ Complete | Feb 2026 |
-| Fuzzing infrastructure | ✅ Complete | Feb 2026 |
-| Side-channel testing | ✅ Complete | Feb 2026 |
-| NIST vector validation | ✅ Complete | Feb 2026 |
-| Third-party audit | 🔄 Scheduled | Q2 2026 |
-| Production release | ⏳ Pending | Q3 2026 |
+```rust
+use tollway_core::{KeyPair, seal, open};
 
-**Do not use in production until audit completes.** The API is stable, but professional security review is required before handling real secrets.
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Generate post-quantum keypairs
+    let alice = KeyPair::generate();
+    let bob = KeyPair::generate();
 
-## How It Works
+    // Alice encrypts a message to Bob (authenticated)
+    let ciphertext = seal(b"Hello Bob!", &alice, &bob.public_key())?;
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         seal()                               │
-├─────────────────────────────────────────────────────────────┤
-│  1. Generate ephemeral KEM keypair (fresh per message)      │
-│  2. Sign ephemeral key with sender's long-term key          │
-│  3. Encapsulate shared secret to recipient's public key     │
-│  4. Derive AEAD key via HKDF-SHA3-256                       │
-│  5. Encrypt plaintext with ChaCha20-Poly1305               │
-│  6. Zeroize ephemeral secret (forward secrecy)              │
-│  7. Output: ciphertext with embedded sender identity        │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                         open()                               │
-├─────────────────────────────────────────────────────────────┤
-│  1. Parse wire format, extract components                   │
-│  2. Verify sender's signature on ephemeral key              │
-│  3. Decapsulate shared secret with recipient's secret key   │
-│  4. Derive AEAD key via HKDF-SHA3-256                       │
-│  5. Decrypt and authenticate ciphertext                     │
-│  6. Return plaintext + verified sender public key           │
-└─────────────────────────────────────────────────────────────┘
+    // Bob decrypts and verifies it came from Alice
+    let (plaintext, sender) = open(&ciphertext, &bob)?;
+    
+    assert_eq!(plaintext, b"Hello Bob!");
+    assert_eq!(sender, alice.public_key());  // Verified sender identity
+    
+    Ok(())
+}
 ```
 
-**Security properties:**
-- ✅ Confidentiality (IND-CCA2)
-- ✅ Authenticity (EUF-CMA)
-- ✅ Integrity (INT-CTXT)
-- ✅ Forward secrecy (per-message)
-- ✅ Sender binding
+### Self-Encryption (Archives/Storage)
 
-**Not provided:**
-- ❌ Deniability (signatures prove authorship)
-- ❌ Anonymity (sender ID in ciphertext)
-- ❌ Replay protection (application layer)
+```rust
+use tollway_core::{KeyPair, seal, open};
 
-See [PROTOCOL.md](./PROTOCOL.md) for full security specification.
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let key = KeyPair::generate();
+    
+    // Encrypt data to yourself
+    let ciphertext = seal(b"Secret data", &key, &key.public_key())?;
+    
+    // Later: decrypt
+    let (plaintext, _) = open(&ciphertext, &key)?;
+    assert_eq!(plaintext, b"Secret data");
+    
+    Ok(())
+}
+```
 
-## Performance
+## Crate Structure
 
-Benchmarks on AMD Ryzen 7 5800X @ 3.8GHz:
+| Crate                             | Description                                       |
+| --------------------------------- | ------------------------------------------------- |
+| [`tollway-core`](tollway-core/)   | Core primitives: `seal()`, `open()`, `KeyPair`    |
+| [`tollway-keys`](tollway-keys/)   | Key management, rotation, backup (in development) |
 
-| Operation | Tollway-PQC | RSA-2048 | Comparison |
-|-----------|-------------|----------|------------|
-| Key Generation | ~15ms | ~150ms | **10x faster** |
-| Encrypt 1KB | ~1.5ms | ~0.5ms | 3x slower |
-| Decrypt 1KB | ~1.0ms | ~5ms | **5x faster** |
-| Encrypt 1MB | ~3ms | ~15ms | **5x faster** |
-| Decrypt 1MB | ~2.5ms | ~20ms | **8x faster** |
+## Sizes
 
-**Size overhead:**
+| Component            | Bytes                  |
+| -------------------- | ---------------------- |
+| Public Key (signing) | 1,952                  |
+| Public Key (KEM)     | 1,184                  |
+| Signature            | 3,309                  |
+| KEM Ciphertext       | 1,088                  |
+| Total Overhead       | ~8,722 + 16 (AEAD tag) |
 
-| Component | Tollway-PQC | RSA-2048 |
-|-----------|-------------|----------|
-| Public Key | 3,136 bytes | 256 bytes |
-| Ciphertext Overhead | 8,738 bytes | 256 bytes |
-| Signature | 3,309 bytes | 256 bytes |
+## Documentation
 
-The "PQC tax" is primarily in key and ciphertext sizes, not computation. Bulk encryption uses ChaCha20-Poly1305 (same as any hybrid scheme), so throughput scales identically.
+- API docs: [docs.rs/tollway-core](https://docs.rs/tollway-core)
+- Protocol specification: [PROTOCOL.md](PROTOCOL.md)
 
-Run benchmarks yourself:
+## Tests and Fuzzing
+
+```bash
+cargo test
+```
+
+Fuzz targets are in [`tollway-core/fuzz/`](tollway-core/fuzz/). Timing analysis tests:
+
+```bash
+cargo test --release --test timing_rigorous
+```
+
+## Benchmarks
 
 ```bash
 cargo bench --bench comprehensive
 ```
 
-## Roadmap
+All benchmarks are in [`tollway-core/benches/`](tollway-core/benches/).
 
-### V1 (Current) — Foundation
-- ✅ ML-KEM-768 + ML-DSA-65 + ChaCha20-Poly1305
-- ✅ Forward secrecy with ephemeral keys
-- ✅ Sender authentication
-- ✅ Comprehensive test suite
+## Minimum Supported Rust Version
 
-### V2 — Key Management
-- 🔄 `tollway-keys`: Identity-based key management
-- 🔄 Automatic key rotation policies
-- 🔄 Encrypted backup and recovery
-- 🔄 Audit logging for compliance
-
-### V3 — Enterprise
-- ⏳ `tollway-hybrid`: Classical + PQC hybrid mode
-- ⏳ `tollway-migrate`: RSA/ECDSA migration tooling
-- ⏳ Hardware security module (HSM) integration
-- ⏳ FIPS 140-3 certification path
-
-## Examples
-
-### Basic Encryption
-```rust
-use tollway_core::{KeyPair, seal, open};
-
-let alice = KeyPair::generate();
-let bob = KeyPair::generate();
-
-let ciphertext = seal(b"Secret message", &alice, &bob.public_key())?;
-let (plaintext, sender) = open(&ciphertext, &bob)?;
-```
-
-### File Encryption
-```rust
-use tollway_core::{KeyPair, seal, open};
-use std::fs;
-
-let key = KeyPair::generate();
-let data = fs::read("secret.pdf")?;
-
-// Encrypt to self
-let encrypted = seal(&data, &key, &key.public_key())?;
-fs::write("secret.pdf.enc", &encrypted)?;
-
-// Later: decrypt
-let encrypted = fs::read("secret.pdf.enc")?;
-let (decrypted, _) = open(&encrypted, &key)?;
-fs::write("secret.pdf", &decrypted)?;
-```
-
-### Encrypted Vault CLI
-```bash
-# Initialize vault with new keypair
-cargo run --example encrypted_vault -- init
-
-# Store encrypted values
-cargo run --example encrypted_vault -- put api_key "sk-secret-12345"
-
-# Retrieve and decrypt
-cargo run --example encrypted_vault -- get api_key
-
-# Rotate keys (re-encrypt everything)
-cargo run --example encrypted_vault -- rotate
-```
-
-## Architecture
-
-```
-tollway-pqc/
-├── tollway-core/     # Cryptographic primitives
-│   ├── seal()        # Encrypt with authentication
-│   ├── open()        # Decrypt and verify
-│   └── KeyPair       # Post-quantum keypairs
-│
-├── tollway-keys/     # Key lifecycle management
-│   ├── Identity      # Named key bundles
-│   ├── KeyManager    # Storage and rotation
-│   └── Backup        # Encrypted key export
-│
-├── tollway-hybrid/   # (Coming) Classical + PQC
-└── tollway-migrate/  # (Coming) Migration tooling
-```
-
-## Security
-
-### What We Test
-
-- **Unit tests**: Every function, every edge case
-- **Property tests**: Invariants verified with proptest (10,000+ cases)
-- **Fuzz testing**: Wire format parser, seal/open roundtrip, corruption handling
-- **Timing tests**: Statistical analysis for side-channel leaks
-- **Error coverage**: Every error variant triggered and verified
-- **NIST vectors**: Algorithm parameter validation
-
-### What We Claim
-
-See [PROTOCOL.md](./PROTOCOL.md) for:
-- Threat model (quantum adversary, HNDL)
-- Security properties with proofs
-- Attack scenarios and mitigations
-- Algorithm migration strategy
-
-### Reporting Vulnerabilities
-
-See [SECURITY.md](./SECURITY.md) for responsible disclosure.
+Rust 1.70 or later. MSRV may change in minor releases.
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.MD) for:
-- Development setup
-- Code style guidelines
-- Testing requirements
-- Pull request process
+See [CONTRIBUTING.md](CONTRIBUTING.MD) for guidelines.
 
 ## License
 
-Dual-licensed under [MIT](./LICENSE-MIT) or [Apache-2.0](./LICENSE-APACHE) at your option.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
 
-## Acknowledgments
+## References
 
-Built on the excellent [pqcrypto](https://crates.io/crates/pqcrypto) library, which provides Rust bindings to the reference implementations of NIST post-quantum algorithms.
-
----
-
-**Questions?** Open an issue or discussion.
-
-**Ready to start?** `cargo add tollway-core` and protect your data against quantum computers today.
+- [FIPS 203: ML-KEM Standard](https://csrc.nist.gov/pubs/fips/203/final)
+- [FIPS 204: ML-DSA Standard](https://csrc.nist.gov/pubs/fips/204/final)
+- [pqcrypto](https://crates.io/crates/pqcrypto) - Underlying PQC implementations
