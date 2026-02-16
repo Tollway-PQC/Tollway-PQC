@@ -1,19 +1,3 @@
-//! FIPS 140-3 module lifecycle finite state machine.
-//!
-//! Implements a thread-safe global FSM using [`AtomicU8`] that governs the
-//! FIPS boundary module lifecycle.  All FIPS API entry points must call
-//! [`require_operational`] before performing any cryptographic work.
-//!
-//! ## State diagram
-//!
-//! ```text
-//!  Uninitialized ──initialize()──► SelfTest ──tests pass──► Operational
-//!                                     │
-//!                                     └──tests fail──► Error
-//!
-//!  Any state ──enter_error_state()──► Error  (terminal)
-//! ```
-
 use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::constants::{
@@ -21,11 +5,7 @@ use crate::constants::{
 };
 use crate::error::TollwayError;
 
-/// Global FIPS module state (thread-safe singleton).
-///
-/// Every load/store uses [`Ordering::SeqCst`] so that state transitions are
-/// visible across all threads with a total ordering guarantee, which is the
-/// strongest memory ordering and appropriate for a security-critical FSM.
+/// Global FIPS module state (thread-safe singleton)
 static MODULE_STATE: AtomicU8 = AtomicU8::new(FIPS_STATE_UNINITIALIZED);
 
 // ---------------------------------------------------------------------------

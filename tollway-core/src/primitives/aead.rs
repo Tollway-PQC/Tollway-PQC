@@ -7,10 +7,7 @@ use crate::constants::{CHACHA20_POLY1305_KEY_BYTES, CHACHA20_POLY1305_NONCE_BYTE
 use crate::error::TollwayError;
 use crate::secure::memory::SecretBytes;
 
-/// Encrypt plaintext using ChaCha20-Poly1305 with associated data
-///
-/// The associated data is authenticated but not encrypted, binding the
-/// ciphertext to its context (sender, recipient, ephemeral keys).
+/// Encrypt plaintext using ChaCha20-Poly1305
 pub fn encrypt(
     key: &SecretBytes<CHACHA20_POLY1305_KEY_BYTES>,
     nonce: &[u8; CHACHA20_POLY1305_NONCE_BYTES],
@@ -32,10 +29,7 @@ pub fn encrypt(
         .map_err(|_| TollwayError::Internal("AEAD encryption failed".to_string()))
 }
 
-/// Decrypt ciphertext using ChaCha20-Poly1305 with associated data
-///
-/// The associated data must match exactly what was used during encryption,
-/// or decryption will fail with an authentication error.
+/// Decrypt ciphertext using ChaCha20-Poly1305
 pub fn decrypt(
     key: &SecretBytes<CHACHA20_POLY1305_KEY_BYTES>,
     nonce: &[u8; CHACHA20_POLY1305_NONCE_BYTES],
@@ -58,18 +52,6 @@ pub fn decrypt(
 }
 
 /// Build the associated data for AEAD from cryptographic context
-///
-/// Binds the ciphertext to:
-/// - Sender's signing public key (who sent this)
-/// - Sender's KEM public key (authenticates reply address -- V2+)
-/// - Recipient's KEM public key (who can decrypt)
-/// - Ephemeral KEM public key (this specific message)
-///
-/// For V1 backward compatibility, pass `&[]` as `sender_kem_pk` to reproduce
-/// the legacy AAD that omitted the sender KEM key.
-///
-/// This prevents cut-and-paste attacks, misbinding, and (in V2) sender KEM
-/// key substitution attacks.
 pub fn build_aad(
     sender_signing_pk: &[u8],
     sender_kem_pk: &[u8],
