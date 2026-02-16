@@ -25,6 +25,7 @@ pqcrypto = "0.18.1"
 
 # Symmetric cryptography
 chacha20poly1305 = "0.10"
+aes-gcm = "0.10"
 hkdf = "0.12"
 sha3 = "0.10"
 
@@ -50,6 +51,10 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # UUID for identity management
 uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Platform memory locking (FIPS secure memory)
+libc = "0.2"
+windows-sys = { version = "0.61", features = ["Win32_System_Memory"] }
 
 # Testing
 criterion = "0.8.2"
