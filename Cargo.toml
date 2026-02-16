@@ -1,5 +1,5 @@
 [workspace]
-members = ["tollway-core", "tollway-keys"]
+members = ["tollway-core"]
 resolver = "2"
 
 [workspace.package]
