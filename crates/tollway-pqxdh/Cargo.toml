@@ -1,0 +1,13 @@
+[package]
+name = "tollway-pqxdh"
+version = "2.0.0-alpha.1"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tollway-primitives = { path = "../tollway-primitives" }
+tollway-hpke = { path = "../tollway-hpke" }
+rand_core.workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "tollway"
+version = "2.0.0-alpha.1"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tollway-hpke = { path = "../tollway-hpke", default-features = false }
+tollway-primitives = { path = "../tollway-primitives" }
+tollway-pqxdh = { path = "../tollway-pqxdh", optional = true }
+
+[features]
+default = ["std", "chacha20", "aes-gcm-aead"]
+std = ["tollway-hpke/std"]
+alloc = ["tollway-hpke/alloc"]
+chacha20 = ["tollway-hpke/chacha20"]
+aes-gcm-aead = ["tollway-hpke/aes-gcm-aead"]
+cnsa = ["tollway-hpke/cnsa"]
+pqxdh = ["dep:tollway-pqxdh"]
+wasm = []

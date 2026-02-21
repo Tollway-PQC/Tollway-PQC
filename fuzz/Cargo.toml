@@ -1,0 +1,32 @@
+[package]
+name = "tollway-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata.cargo-fuzz]
+build-flag = ["--cfg", "fuzzing"]
+
+[dependencies]
+libfuzzer-sys = "0.4.7"
+tollway = { path = "../crates/tollway" }
+tollway-hpke = { path = "../crates/tollway-hpke" }
+tollway-primitives = { path = "../crates/tollway-primitives" }
+
+[[bin]]
+name = "fuzz_hpke_open"
+path = "fuzz_targets/fuzz_hpke_open.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_kem_decap"
+path = "fuzz_targets/fuzz_kem_decap.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_wire_parse"
+path = "fuzz_targets/fuzz_wire_parse.rs"
+test = false
+doc = false
